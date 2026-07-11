@@ -53,8 +53,6 @@ local function InitializeForWorkspace(workspace)
     if not (workspace and workspace:IsValid()) then print("workspace not valid") return end
     if not string.find(workspace:GetFullName(), "/Engine/Transient") then print("improper workspace path") return end
 
-    -- InjectHotkeyText(workspace.WBP_IngameCommonSelectNum)
-
     for keyName, denominator in pairs(keyToDenominator) do
         local targetKey = Key[keyName]
 
