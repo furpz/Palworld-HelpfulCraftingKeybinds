@@ -1,14 +1,6 @@
 --[[
-CRASH NOTES
-load in world, use a keybind, leave, load a world, crashes
-narroed down to using workspace:StartProduce() causing crash, as well as commonselectnum:SetNum()
-
-genuinely lost on this
-
-
+    cache activeworkspace, now that it's been determined not have caused the crash
 ]]
-
-
 
 local ueHelpers = require("UEHelpers")
 
@@ -59,7 +51,9 @@ end
 local function StartCraft()
     if IsPlayerTyping() then return end
 
-    if activeWorkspace:IsActivated() then activeWorkspace:StartProduce() end
+    ExecuteInGameThread(function()
+        if activeWorkspace:IsActivated() then activeWorkspace:StartProduce() end
+    end)
 end
 
 local function SplitAmount(denominator, instantCraft)
@@ -75,8 +69,11 @@ local function SplitAmount(denominator, instantCraft)
         local max = commonSelectNum["Max Num"]
         local amountToSelect = math.max(1, math.floor(max / denominator)) -- default to 1, something evil probably happens when i try to set it to 0 idk
         
-        commonSelectNum:SetNum(amountToSelect, 1, true)
+        ExecuteInGameThread(function()
+            commonSelectNum:SetNum(amountToSelect, 1, true)
+        end)
         lastSelectedAmount = amountToSelect
+
 
         if instantCraft then
             StartCraft()
@@ -93,7 +90,9 @@ local function UseLastSelectedAmount(instantCraft) --theres prob a way to do thi
     local commonSelectNum = activeWorkspace.WBP_IngameCommonSelectNum
     if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("csn not valid") end
 
-    commonSelectNum:SetNum(lastSelectedAmount, 1, true)
+    ExecuteInGameThread(function()
+        commonSelectNum:SetNum(lastSelectedAmount, 1, true)
+    end)
 end
 
 local function SetupKeybinds()
@@ -116,32 +115,25 @@ local function SetupKeybinds()
     RegisterKeyBind(Key.OEM_THREE, function()
         UseLastSelectedAmount()
     end)
+
 end
-
--- local function InitializeForHotReload()
---     local workspaces = FindAllOf("WBP_IngameMenu_WorkSpace_C") --really could just do findfirstof but wtv
---     for i, workspace in pairs(workspaces) do
---         InitializeForWorkspace(workspace)
---     end
--- end
-
--- InitializeForHotReload()
 
 SetupKeybinds()
 
--- RegisterHook("/Script/Engine.PlayerController:ServerAcknowledgePossession", function(self)
---     --notifying on new WBP_IngameMenu_WorkSpace_Slider_C results in two occurances, which isn't the case it seems for WBP_IngameMenu_WorkSpace_C
---     --checking if path contains /Engine/Transient just in case, but it prob doesn't matter
---     NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
---         mPrint("notified")
---         if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
---         if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
+RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(self)
+    --notifying on new WBP_IngameMenu_WorkSpace_Slider_C results in two occurances, which isn't the case it seems for WBP_IngameMenu_WorkSpace_C
+    --checking if path contains /Engine/Transient just in case, but it prob doesn't matter
+    -- NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
+    --     mPrint("notified")
+    --     if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
+    --     if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
 
---         activeWorkspace = workspace
---         mPrint("active workspace set")
+    --     activeWorkspace = workspace
+    --     mPrint("active workspace set")
 
 
---     end)
--- end)
+    -- end)
+    mPrint("client restarted")
+end)
 
 mPrint("MOD LOADED")
