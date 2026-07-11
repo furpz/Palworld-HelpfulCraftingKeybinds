@@ -10,6 +10,10 @@ local keyToDenominator = { -- so i dont have to write registerkeybind like 10 ti
     ["SIX"] = 6,
 }
 
+local function mPrint(message)
+    print("[QuickCraftSplit] " .. message)
+end
+
 local function IsPlayerTyping(workspace)
     if workspace and workspace:IsValid() then
         local searchBar = workspace.PalEditableTextBox_Search
@@ -32,16 +36,16 @@ local function SplitAmount(workspace, denominator, instantCraft)
 
     instantCraft = instantCraft or false
 
-    local commonSelectNum = workspace.WBP_IngameCommonSelectNum --please sanity check this
-    if not commonSelectNum or not commonSelectNum:IsValid() then print("csn not valid") end
+    local commonSelectNum = workspace.WBP_IngameCommonSelectNum
+    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("csn not valid") end
 
     if denominator <= 0 then return end
     if commonSelectNum and commonSelectNum:IsValid() then
         local max = commonSelectNum["Max Num"]
         local amountToSelect = math.max(1, math.floor(max / denominator)) -- default to 1, something evil probably happens when i try to set it to 0 idk
-
-        --do some checks on amounttoselect
+        
         commonSelectNum:SetNum(amountToSelect, 1, true)
+        lastSelectedAmount = amountToSelect
 
         if instantCraft then
             StartCraft(workspace)
@@ -49,9 +53,21 @@ local function SplitAmount(workspace, denominator, instantCraft)
     end
 end
 
-local function InitializeForWorkspace(workspace)
-    if not (workspace and workspace:IsValid()) then print("workspace not valid") return end
-    if not string.find(workspace:GetFullName(), "/Engine/Transient") then print("improper workspace path") return end
+local function UseLastSelectedAmount(workspace, instantCraft) --theres prob a way to do this w/ less duplicated code but im lazy so
+    if IsPlayerTyping(workspace) then return end
+    if not lastSelectedAmount then return end
+
+    instantCraft = instantCraft or false
+
+    local commonSelectNum = workspace.WBP_IngameCommonSelectNum
+    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("csn not valid") end
+
+    commonSelectNum:SetNum(lastSelectedAmount, 1, true)
+end
+
+local function InitializeForWorkspace(workspace) --this should only run once
+    if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
+    if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
 
     for keyName, denominator in pairs(keyToDenominator) do
         local targetKey = Key[keyName]
@@ -68,6 +84,10 @@ local function InitializeForWorkspace(workspace)
     RegisterKeyBind(Key.SPACE, function()
         StartCraft(workspace)
     end)
+
+    RegisterKeyBind(Key.OEM_THREE, function()
+        UseLastSelectedAmount(workspace)
+    end)
 end
 
 -- local function InitializeForHotReload()
@@ -77,7 +97,7 @@ end
 --     end
 -- end
 
--- -- InitializeForHotReload()
+-- InitializeForHotReload()
 
 RegisterHook("/Script/Engine.PlayerController:ServerAcknowledgePossession", function(self)
     --notifying on new WBP_IngameMenu_WorkSpace_Slider_C results in two occurances, which isn't the case it seems for WBP_IngameMenu_WorkSpace_C
@@ -87,5 +107,4 @@ RegisterHook("/Script/Engine.PlayerController:ServerAcknowledgePossession", func
     end)
 end)
 
-
-print("[QuickCraftSplit] MOD LOADED")
+mPrint("MOD LOADED")
