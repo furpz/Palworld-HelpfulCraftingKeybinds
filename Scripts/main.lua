@@ -1,6 +1,14 @@
 local ueHelpers = require("UEHelpers")
 
 local lastSelectedAmount
+local keyToDenominator = { -- so i dont have to write registerkeybind like 10 times lol
+    ["ONE"] = 1,
+    ["TWO"] = 2,
+    ["THREE"] = 3,
+    ["FOUR"] = 4,
+    ["FIVE"] = 5,
+    ["SIX"] = 6,
+}
 
 local function IsPlayerTyping(workspace)
     if workspace and workspace:IsValid() then
@@ -15,12 +23,17 @@ local function IsPlayerTyping(workspace)
     return false
 end
 
+local function StartCraft(workspace)
+    if workspace:IsActivated() then workspace:StartProduce() end
+end
+
 local function SplitAmount(workspace, denominator, instantCraft)
     if IsPlayerTyping(workspace) then return end
 
     instantCraft = instantCraft or false
 
     local commonSelectNum = workspace.WBP_IngameCommonSelectNum --please sanity check this
+    if not commonSelectNum or not commonSelectNum:IsValid() then print("csn not valid") end
 
     if denominator <= 0 then return end
     if commonSelectNum and commonSelectNum:IsValid() then
@@ -31,22 +44,16 @@ local function SplitAmount(workspace, denominator, instantCraft)
         commonSelectNum:SetNum(amountToSelect, 1, true)
 
         if instantCraft then
-            workspace:StartProduce()
+            StartCraft(workspace)
         end
     end
 end
 
-local keyToDenominator = { -- so i dont have to write registerkeybind like 10 times lol
-    ["ONE"] = 1,
-    ["TWO"] = 2,
-    ["THREE"] = 3,
-    ["FOUR"] = 4,
-    ["FIVE"] = 5,
-    ["SIX"] = 6,
-}
-
 local function InitializeForWorkspace(workspace)
-    if not string.find(workspace:GetFullName(), "/Engine/Transient") then return end
+    if not (workspace and workspace:IsValid()) then print("workspace not valid") return end
+    if not string.find(workspace:GetFullName(), "/Engine/Transient") then print("improper workspace path") return end
+
+    -- InjectHotkeyText(workspace.WBP_IngameCommonSelectNum)
 
     for keyName, denominator in pairs(keyToDenominator) do
         local targetKey = Key[keyName]
@@ -59,17 +66,20 @@ local function InitializeForWorkspace(workspace)
             SplitAmount(workspace, denominator, true)
         end)
     end
+
+    RegisterKeyBind(Key.SPACE, function()
+        StartCraft(workspace)
+    end)
 end
 
-local function InitializeForHotReload()
-    local workspaces = FindAllOf("WBP_IngameMenu_WorkSpace_C") --really could just do findfirstof but wtv
-    for i, workspace in pairs(workspaces) do
-        InitializeForWorkspace(workspace)
-    end
-end
+-- local function InitializeForHotReload()
+--     local workspaces = FindAllOf("WBP_IngameMenu_WorkSpace_C") --really could just do findfirstof but wtv
+--     for i, workspace in pairs(workspaces) do
+--         InitializeForWorkspace(workspace)
+--     end
+-- end
 
-InitializeForHotReload()
-
+-- -- InitializeForHotReload()
 
 RegisterHook("/Script/Engine.PlayerController:ServerAcknowledgePossession", function(self)
     --notifying on new WBP_IngameMenu_WorkSpace_Slider_C results in two occurances, which isn't the case it seems for WBP_IngameMenu_WorkSpace_C
