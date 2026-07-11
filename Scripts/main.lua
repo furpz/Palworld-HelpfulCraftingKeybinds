@@ -1,52 +1,23 @@
-local UEHelpersLoaded, UEHelpers = pcall(
-    require,
-    "UEHelpers"
-)
+local ueHelpers = require("UEHelpers")
 
-local function HookPalSummon()
-    RegisterHook(
-        "/Game/Pal/Blueprint/Component/OtomoHolder/BP_OtomoPalHolderComponent.BP_OtomoPalHolderComponent_C:ActivateOtomo",
-        function(self, slotId)
-            local HolderComponent = self:Get()
-            local PalActor = HolderComponent:TryGetOtomoActorBySlotIndex(slotId:Get())
+local sapHookRan = false
 
-            -- PalActor:RequestJump()
-            PalActor:SetActorScale3D({ X = 5, Y = 5, Z = 1 })
+RegisterHook("/Script/Engine.PlayerController:ServerAcknowledgePossession", function(self)
+    sapHookRan = true
+    NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace_Slider.WBP_IngameMenu_WorkSpace_Slider_C", function(slider)
+        -- print(slider:GetFullName())
+
+        local commonSelectNum = slider:GetOuter():GetOuter()
+        if not string.find(commonSelectNum:GetFullName(), "/Engine/Transient") then return end
+
+        RegisterKeyBind(Key.ONE, function()
+
+            print(commonSelectNum:GetFullName())
+            ExecuteInGameThread(function()
+                commonSelectNum:SetNum(3, 1, true)
+            end)
         end)
-end
-
--- function DoCraftShit()
---     local workspaceMenu = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
---     local slider = FindFirstOf("WBP_IngameMenu_WorkSpace_Slider_C")
-
---     if workspaceMenu and workspaceMenu:IsValid() then
---         print("workspace menu valid")
---         pcall(function()
---             print(workspaceMenu.CurrentProductAmount)
---             -- workspaceMenu.CurrentProductAmount = 9
---             -- workspaceMenu:StartProduce()
---         end)
---     end
-
-
---     if slider and slider:IsValid() then
---         print("slider valid yo")
---         print(slider.Current)
---     end
--- end
-
--- RegisterKeyBind(Key.ONE, DoCraftShit)
-
--- RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context)
---     NotifyOnNewObject(
---         "/Game/Pal/Blueprint/Component/OtomoHolder/BP_OtomoPalHolderComponent.BP_OtomoPalHolderComponent_C",
---         function(Component)
---             HookPalSummon()
---         end)
--- end)
-
-
---for hot reloading in world purposes
-HookPalSummon()
+    end)
+end)
 
 print("[QuickCraftSplit] MOD LOADED")
