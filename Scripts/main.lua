@@ -1,13 +1,9 @@
---[[
-    cache activeworkspace, now that it's been determined not have caused the crash
-]]
-
 local ueHelpers = require("UEHelpers")
 
 local lastSelectedAmount
 local activeWorkspace
 
-local keyToDenominator = { -- so i dont have to write registerkeybind like 10 times lol
+local keyToDenominator = {
     ["ONE"] = 1,
     ["TWO"] = 2,
     ["THREE"] = 3,
@@ -16,42 +12,33 @@ local keyToDenominator = { -- so i dont have to write registerkeybind like 10 ti
     ["SIX"] = 6,
 }
 
+-- util --------------------------------------------------------------------------------
 local function mPrint(message)
     print("[QuickCraftSplit] " .. message)
 end
 
-local function RefreshActiveWorkspace()
-    local workspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
-    if workspace and workspace:IsValid() then
-        activeWorkspace = workspace
-    end
-end
+local function IsWorkspaceValid()
+    if not activeWorkspace or not activeWorkspace:IsValid() then activeWorkspace = nil end -- i miss you null conditional operator
 
-local function WorkspaceValid()
-    RefreshActiveWorkspace()
-
-    local isValid = activeWorkspace and activeWorkspace:IsValid()
-    print(isValid and "workspace is valid" or "workspace isnt valid")
-    return isValid
+    return activeWorkspace ~= nil
 end
 
 local function IsPlayerTyping()
-    if not WorkspaceValid() then return end
+    if not IsWorkspaceValid() then return false end
 
     local searchBar = activeWorkspace.PalEditableTextBox_Search
-    if searchBar and searchBar:IsValid() then
-        if searchBar:HasKeyboardFocus() then
-            return true
-        end
-    end
+    if not searchBar or not searchBar:IsValid() then return false end
 
-    return false
+    return searchBar:HasKeyboardFocus()
 end
 
+-- keybind functions --------------------------------------------------------------------------------
 local function StartCraft()
     if IsPlayerTyping() then return end
 
     ExecuteInGameThread(function()
+        if not IsWorkspaceValid() then return end -- extra check lol maybe unnecessary
+
         if activeWorkspace:IsActivated() then activeWorkspace:StartProduce() end
     end)
 end
@@ -70,10 +57,12 @@ local function SplitAmount(denominator, instantCraft)
         local amountToSelect = math.max(1, math.floor(max / denominator)) -- default to 1, something evil probably happens when i try to set it to 0 idk
         
         ExecuteInGameThread(function()
+            if not IsWorkspaceValid() then return end
+
             commonSelectNum:SetNum(amountToSelect, 1, true)
         end)
-        lastSelectedAmount = amountToSelect
 
+        lastSelectedAmount = amountToSelect
 
         if instantCraft then
             StartCraft()
@@ -88,11 +77,17 @@ local function UseLastSelectedAmount(instantCraft) --theres prob a way to do thi
     instantCraft = instantCraft or false
 
     local commonSelectNum = activeWorkspace.WBP_IngameCommonSelectNum
-    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("csn not valid") end
+    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return end
 
     ExecuteInGameThread(function()
+        if not IsWorkspaceValid() then return end
+
         commonSelectNum:SetNum(lastSelectedAmount, 1, true)
     end)
+
+    if instantCraft then
+        StartCraft()
+    end
 end
 
 local function SetupKeybinds()
@@ -116,24 +111,20 @@ local function SetupKeybinds()
         UseLastSelectedAmount()
     end)
 
+    RegisterKeyBind(Key.OEM_THREE, {ModifierKey.SHIFT}, function()
+        UseLastSelectedAmount(true)
+    end)
+
 end
 
 SetupKeybinds()
 
-RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(self)
-    --notifying on new WBP_IngameMenu_WorkSpace_Slider_C results in two occurances, which isn't the case it seems for WBP_IngameMenu_WorkSpace_C
-    --checking if path contains /Engine/Transient just in case, but it prob doesn't matter
-    -- NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
-    --     mPrint("notified")
-    --     if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
-    --     if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
+NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
+    if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
+    if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
 
-    --     activeWorkspace = workspace
-    --     mPrint("active workspace set")
-
-
-    -- end)
-    mPrint("client restarted")
+    activeWorkspace = workspace
+    mPrint("active workspace set")
 end)
 
 mPrint("MOD LOADED")
