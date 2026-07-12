@@ -1,15 +1,28 @@
 local ueHelpers = require("UEHelpers")
+local config = require("config")
+
+local START_CRAFT_KEY = Key[config.Keybinds.StartCraftKey] or Key.SPACE
+local USE_LAST_AMOUNT_KEY = Key[config.Keybinds.UseLastAmountKey] or Key.OEM_THREE
+local DEFAULT_INSTANT_CRAFT = config.Settings.DefaultToInstantCraft or false
+
+local START_CRAFT_ENABLED = true --falsy stuff
+if config.Settings.StartCraftKeyEnabled == false then START_CRAFT_ENABLED = false end
+
+local INSTANT_CRAFT_MODIFIER_KEY = ModifierKey.SHIFT
 
 local lastSelectedAmount
 local activeWorkspace
 
 local keyToDenominator = {
-    ["ONE"] = 1,
-    ["TWO"] = 2,
-    ["THREE"] = 3,
-    ["FOUR"] = 4,
-    ["FIVE"] = 5,
-    ["SIX"] = 6,
+    ONE = 1,
+    TWO = 2,
+    THREE = 3,
+    FOUR = 4,
+    FIVE = 5,
+    SIX = 6,
+    SEVEN = 7, --can't really think of ever splitting past 4ths but have fun
+    EIGHT = 8,
+    NINE = 9,
 }
 
 -- util --------------------------------------------------------------------------------
@@ -32,9 +45,16 @@ local function IsPlayerTyping()
     return searchBar:HasKeyboardFocus()
 end
 
+local function CanProcessKeybind()
+    if IsPlayerTyping() then return false end --already checks workspace validity
+    if not activeWorkspace:IsActivated() then return false end
+
+    return true
+end
+
 -- keybind functions --------------------------------------------------------------------------------
 local function StartCraft()
-    if IsPlayerTyping() then return end
+    if not CanProcessKeybind() then return end
 
     ExecuteInGameThread(function()
         if not IsWorkspaceValid() then return end -- extra check lol maybe unnecessary
@@ -44,18 +64,16 @@ local function StartCraft()
 end
 
 local function SplitAmount(denominator, instantCraft)
-    if IsPlayerTyping() then return end
-
-    instantCraft = instantCraft or false
+    if not CanProcessKeybind() then return end
 
     local commonSelectNum = activeWorkspace.WBP_IngameCommonSelectNum
-    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("csn not valid") end
+    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return end
 
     if denominator <= 0 then return end
     if commonSelectNum and commonSelectNum:IsValid() then
         local max = commonSelectNum["Max Num"]
         local amountToSelect = math.max(1, math.floor(max / denominator)) -- default to 1, something evil probably happens when i try to set it to 0 idk
-        
+
         ExecuteInGameThread(function()
             if not IsWorkspaceValid() then return end
 
@@ -71,7 +89,7 @@ local function SplitAmount(denominator, instantCraft)
 end
 
 local function UseLastSelectedAmount(instantCraft) --theres prob a way to do this w/ less duplicated code but im lazy so
-    if IsPlayerTyping() then return end
+    if not CanProcessKeybind() then return end
     if not lastSelectedAmount then return end
 
     instantCraft = instantCraft or false
@@ -95,24 +113,26 @@ local function SetupKeybinds()
         local targetKey = Key[keyName]
 
         RegisterKeyBind(targetKey, function()
-            SplitAmount(denominator)
+            SplitAmount(denominator, DEFAULT_INSTANT_CRAFT)
         end)
 
-        RegisterKeyBind(targetKey, {ModifierKey.SHIFT}, function()
-            SplitAmount(denominator, true)
+        RegisterKeyBind(targetKey, {INSTANT_CRAFT_MODIFIER_KEY}, function()
+            SplitAmount(denominator, not DEFAULT_INSTANT_CRAFT)
         end)
     end
 
-    RegisterKeyBind(Key.SPACE, function()
-        StartCraft()
+    if START_CRAFT_ENABLED then
+        RegisterKeyBind(START_CRAFT_KEY, function()
+            StartCraft()
+        end)
+    end
+
+    RegisterKeyBind(USE_LAST_AMOUNT_KEY, function()
+        UseLastSelectedAmount(DEFAULT_INSTANT_CRAFT)
     end)
 
-    RegisterKeyBind(Key.OEM_THREE, function()
-        UseLastSelectedAmount()
-    end)
-
-    RegisterKeyBind(Key.OEM_THREE, {ModifierKey.SHIFT}, function()
-        UseLastSelectedAmount(true)
+    RegisterKeyBind(USE_LAST_AMOUNT_KEY, {INSTANT_CRAFT_MODIFIER_KEY}, function()
+        UseLastSelectedAmount(not DEFAULT_INSTANT_CRAFT)
     end)
 
 end
