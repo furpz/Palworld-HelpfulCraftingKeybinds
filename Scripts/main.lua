@@ -37,7 +37,7 @@ local function IsWorkspaceValid()
 end
 
 local function IsPlayerTyping()
-    if not IsWorkspaceValid() then return false end
+    if not IsWorkspaceValid() then return true end -- returns true to basically mimic returning null, as things that check IsPlayerTyping check if its false (this is a stupid fix)
 
     local searchBar = activeWorkspace.PalEditableTextBox_Search
     if not searchBar or not searchBar:IsValid() then return false end
