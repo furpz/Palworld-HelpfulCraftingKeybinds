@@ -1,9 +1,18 @@
+-- HelpfulCraftingKeybinds v1.1.0
+-- by furpz!!!!
+
 local ueHelpers = require("UEHelpers")
 local config = require("config")
 
+-- make this cleaner later when i feel like it lol
 local START_CRAFT_KEY = Key[config.Keybinds.StartCraftKey] or Key.SPACE
 local USE_LAST_AMOUNT_KEY = Key[config.Keybinds.UseLastAmountKey] or Key.OEM_THREE
 local DEFAULT_INSTANT_CRAFT = config.Settings.DefaultToInstantCraft or false
+
+local USE_NUMBER_ROW = true
+if config.Settings.EnableNumberRow == false then USE_NUMBER_ROW = false end
+local USE_NUMPAD = true
+if config.Settings.EnableNumpad == false then USE_NUMPAD = false end
 
 local START_CRAFT_ENABLED = true --falsy stuff
 if config.Settings.StartCraftKeyEnabled == false then START_CRAFT_ENABLED = false end
@@ -13,16 +22,28 @@ local INSTANT_CRAFT_MODIFIER_KEY = ModifierKey.SHIFT
 local lastSelectedAmount
 local activeWorkspace
 
-local keyToDenominator = {
-    ONE = 1,
-    TWO = 2,
-    THREE = 3,
-    FOUR = 4,
-    FIVE = 5,
-    SIX = 6,
-    SEVEN = 7, --can't really think of ever splitting past 4ths but have fun
-    EIGHT = 8,
-    NINE = 9,
+local numberRowMapping = {
+    ["1"] = "ONE",
+    ["2"] = "TWO",
+    ["3"] = "THREE",
+    ["4"] = "FOUR",
+    ["5"] = "FIVE",
+    ["6"] = "SIX",
+    ["7"] = "SEVEN",
+    ["8"] = "EIGHT",
+    ["9"] = "NINE",
+}
+
+local numpadMappings = {
+    ["1"] = "NUM_ONE",
+    ["2"] = "NUM_TWO",
+    ["3"] = "NUM_THREE",
+    ["4"] = "NUM_FOUR",
+    ["5"] = "NUM_FIVE",
+    ["6"] = "NUM_SIX",
+    ["7"] = "NUM_SEVEN",
+    ["8"] = "NUM_EIGHT",
+    ["9"] = "NUM_NINE",
 }
 
 -- util --------------------------------------------------------------------------------
@@ -108,18 +129,30 @@ local function UseLastSelectedAmount(instantCraft) --theres prob a way to do thi
     end
 end
 
-local function SetupKeybinds()
-    for keyName, denominator in pairs(keyToDenominator) do
+local function RegisterFractionKeys(mappingTable)
+    for denominator, keyName in pairs(mappingTable) do
         local targetKey = Key[keyName]
 
-        RegisterKeyBind(targetKey, function()
-            SplitAmount(denominator, DEFAULT_INSTANT_CRAFT)
-        end)
+        if targetKey then
+            local denominatorAsNumber = tonumber(denominator)
 
-        RegisterKeyBind(targetKey, {INSTANT_CRAFT_MODIFIER_KEY}, function()
-            SplitAmount(denominator, not DEFAULT_INSTANT_CRAFT)
-        end)
+            RegisterKeyBind(targetKey, function()
+                SplitAmount(denominatorAsNumber, DEFAULT_INSTANT_CRAFT)
+            end)
+    
+            RegisterKeyBind(targetKey, {INSTANT_CRAFT_MODIFIER_KEY}, function()
+                SplitAmount(denominatorAsNumber, not DEFAULT_INSTANT_CRAFT)
+            end)
+        else
+            mPrint("key " .. keyName .. " does not exist")
+        end
     end
+end
+
+local function SetupKeybinds()
+    --loop thru config keybinds and set accordingly, this is a fallback in case config doesn't load ? but idk if that can even happen 
+    if USE_NUMBER_ROW then RegisterFractionKeys(numberRowMapping) end
+    if USE_NUMPAD then RegisterFractionKeys(numpadMappings) end
 
     if START_CRAFT_ENABLED then
         RegisterKeyBind(START_CRAFT_KEY, function()
