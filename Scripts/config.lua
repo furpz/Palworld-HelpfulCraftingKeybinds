@@ -22,14 +22,6 @@ return {
 
     -- GENERAL SETTINGS -----------------------------
     Settings = {
-        -- set to true if you want fraction keys to instantly start crafting without holding shift
-        -- options: true, false (default: false)
-        DefaultToInstantCraft = false,
-
-        -- enables or disables the functionality of the StartCraftKey, which just starts crafting if you press it
-        -- options: true, false (default: true)
-        StartCraftKeyEnabled = true,
-
         -- enables the standard top number row keys 1-9
         -- options: true, false (default: true)
         EnableNumberRow = true;
@@ -39,6 +31,12 @@ return {
         -- options: true, false (default: true)
         EnableNumpad = true,
 
-        
+        -- set to true if you want fraction keys to instantly start crafting without holding shift
+        -- options: true, false (default: false)
+        DefaultToInstantCraft = false,
+
+        -- enables or disables the functionality of the StartCraftKey, which just starts crafting if you press it
+        -- options: true, false (default: true)
+        StartCraftKeyEnabled = true,
     }
 }

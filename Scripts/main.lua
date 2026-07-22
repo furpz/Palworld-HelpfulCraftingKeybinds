@@ -1,23 +1,22 @@
--- HelpfulCraftingKeybinds v1.1.0
+-- HelpfulCraftingKeybinds v1.1.1
 -- by furpz!!!!
 
 local ueHelpers = require("UEHelpers")
 local config = require("config")
 
+-- default settings, config is checked and overrides if the value in config != nil
+local settings = {
+    StartCraftKey = Key.SPACE,
+    UseLastAmountKey = Key.OEM_THREE,
+    InstantCraftModifierKey = ModifierKey.SHIFT,
+
+    DefaultToInstantCraft = false,
+    StartCraftKeyEnabled = true,
+    EnableNumberRow = true,
+    EnableNumpad = true
+}
+
 -- make this cleaner later when i feel like it lol
-local START_CRAFT_KEY = Key[config.Keybinds.StartCraftKey] or Key.SPACE
-local USE_LAST_AMOUNT_KEY = Key[config.Keybinds.UseLastAmountKey] or Key.OEM_THREE
-local DEFAULT_INSTANT_CRAFT = config.Settings.DefaultToInstantCraft or false
-
-local USE_NUMBER_ROW = true
-if config.Settings.EnableNumberRow == false then USE_NUMBER_ROW = false end
-local USE_NUMPAD = true
-if config.Settings.EnableNumpad == false then USE_NUMPAD = false end
-
-local START_CRAFT_ENABLED = true --falsy stuff
-if config.Settings.StartCraftKeyEnabled == false then START_CRAFT_ENABLED = false end
-
-local INSTANT_CRAFT_MODIFIER_KEY = ModifierKey.SHIFT
 
 local lastSelectedAmount
 local activeWorkspace
@@ -51,24 +50,50 @@ local function mPrint(message)
     print("[QuickCraftSplit] " .. message)
 end
 
-local function IsWorkspaceValid()
-    if not activeWorkspace or not activeWorkspace:IsValid() then activeWorkspace = nil end -- i miss you null conditional operator
+local function GetWorkspace()
+    if activeWorkspace and activeWorkspace:IsValid() then
+        return activeWorkspace
+    end
 
-    return activeWorkspace ~= nil
+    mPrint("no active workspace found, attempting to search for a new one")
+    local foundWorkspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
+    if foundWorkspace and foundWorkspace:IsValid() then
+        activeWorkspace = foundWorkspace
+        return activeWorkspace
+    end
+
+    mPrint("could not find a valid workspace")
+
+    return nil
+end
+
+local function GetCommonSelectNum()
+    local workspace = GetWorkspace()
+    if not workspace then return nil end
+
+    local commonSelectNum = workspace.WBP_IngameCommonSelectNum
+    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return nil end
+
+    return commonSelectNum
 end
 
 local function IsPlayerTyping()
-    if not IsWorkspaceValid() then return true end -- returns true to basically mimic returning null, as things that check IsPlayerTyping check if its false (this is a stupid fix)
+    local workspace = GetWorkspace()
+    if not workspace then return true end
+    -- returns true to basically mimic returning null, as things that check IsPlayerTyping check if its false (this is a stupid fix)
 
-    local searchBar = activeWorkspace.PalEditableTextBox_Search
+    local searchBar = workspace.PalEditableTextBox_Search
     if not searchBar or not searchBar:IsValid() then return false end
 
     return searchBar:HasKeyboardFocus()
 end
 
 local function CanProcessKeybind()
-    if IsPlayerTyping() then return false end --already checks workspace validity
-    if not activeWorkspace:IsActivated() then return false end
+    local workspace = GetWorkspace()
+    if not workspace then return false end
+
+    if IsPlayerTyping() then return false end
+    if not workspace:IsActivated() then return false end
 
     return true
 end
@@ -78,17 +103,18 @@ local function StartCraft()
     if not CanProcessKeybind() then return end
 
     ExecuteInGameThread(function()
-        if not IsWorkspaceValid() then return end -- extra check lol maybe unnecessary
+        local workspace = GetWorkspace()
+        if not workspace then return end -- extra check lol maybe unnecessary
 
-        if activeWorkspace:IsActivated() then activeWorkspace:StartProduce() end
+        if workspace:IsActivated() then workspace:StartProduce() end
     end)
 end
 
 local function SplitAmount(denominator, instantCraft)
     if not CanProcessKeybind() then return end
 
-    local commonSelectNum = activeWorkspace.WBP_IngameCommonSelectNum
-    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return end
+    local commonSelectNum = GetCommonSelectNum()
+    if not commonSelectNum then return end
 
     if denominator <= 0 then return end
     if commonSelectNum and commonSelectNum:IsValid() then
@@ -96,7 +122,8 @@ local function SplitAmount(denominator, instantCraft)
         local amountToSelect = math.max(1, math.floor(max / denominator)) -- default to 1, something evil probably happens when i try to set it to 0 idk
 
         ExecuteInGameThread(function()
-            if not IsWorkspaceValid() then return end
+            local workspace = GetWorkspace()
+            if not workspace then return end
 
             commonSelectNum:SetNum(amountToSelect, 1, true)
         end)
@@ -115,11 +142,9 @@ local function UseLastSelectedAmount(instantCraft) --theres prob a way to do thi
 
     instantCraft = instantCraft or false
 
-    local commonSelectNum = activeWorkspace.WBP_IngameCommonSelectNum
-    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return end
-
     ExecuteInGameThread(function()
-        if not IsWorkspaceValid() then return end
+        local commonSelectNum = GetCommonSelectNum()
+        if not commonSelectNum then return end
 
         commonSelectNum:SetNum(lastSelectedAmount, 1, true)
     end)
@@ -137,11 +162,11 @@ local function RegisterFractionKeys(mappingTable)
             local denominatorAsNumber = tonumber(denominator)
 
             RegisterKeyBind(targetKey, function()
-                SplitAmount(denominatorAsNumber, DEFAULT_INSTANT_CRAFT)
+                SplitAmount(denominatorAsNumber, settings.DefaultToInstantCraft)
             end)
     
-            RegisterKeyBind(targetKey, {INSTANT_CRAFT_MODIFIER_KEY}, function()
-                SplitAmount(denominatorAsNumber, not DEFAULT_INSTANT_CRAFT)
+            RegisterKeyBind(targetKey, {settings.InstantCraftModifierKey}, function()
+                SplitAmount(denominatorAsNumber, not settings.DefaultToInstantCraft)
             end)
         else
             mPrint("key " .. keyName .. " does not exist")
@@ -149,27 +174,51 @@ local function RegisterFractionKeys(mappingTable)
     end
 end
 
+local function SetupConfig()
+    if config == nil then mPrint("config not found") return end
+
+    for setting, _ in pairs(settings) do
+        local settingConfig = config.Settings[setting]
+
+        if settingConfig ~= nil then
+            settings[setting] = settingConfig
+        end
+    end
+
+    for setting, _ in pairs(settings) do
+        local keybindConfig = config.Keybinds[setting]
+        local mappedKey = keybindConfig and Key[keybindConfig]
+
+        if mappedKey ~= nil then
+            settings[setting] = mappedKey
+        else
+            mPrint("keybind " .. tostring(keybindConfig) .. " is invalid, using default")
+        end
+    end
+end
+
 local function SetupKeybinds()
     --loop thru config keybinds and set accordingly, this is a fallback in case config doesn't load ? but idk if that can even happen 
-    if USE_NUMBER_ROW then RegisterFractionKeys(numberRowMapping) end
-    if USE_NUMPAD then RegisterFractionKeys(numpadMappings) end
+    if settings.EnableNumberRow then RegisterFractionKeys(numberRowMapping) end
+    if settings.EnableNumpad then RegisterFractionKeys(numpadMappings) end
 
-    if START_CRAFT_ENABLED then
-        RegisterKeyBind(START_CRAFT_KEY, function()
+    if settings.StartCraftKeyEnabled then
+        RegisterKeyBind(settings.StartCraftKey, function()
             StartCraft()
         end)
     end
 
-    RegisterKeyBind(USE_LAST_AMOUNT_KEY, function()
-        UseLastSelectedAmount(DEFAULT_INSTANT_CRAFT)
+    RegisterKeyBind(settings.UseLastAmountKey, function()
+        UseLastSelectedAmount(settings.DefaultToInstantCraft)
     end)
 
-    RegisterKeyBind(USE_LAST_AMOUNT_KEY, {INSTANT_CRAFT_MODIFIER_KEY}, function()
-        UseLastSelectedAmount(not DEFAULT_INSTANT_CRAFT)
+    RegisterKeyBind(settings.UseLastAmountKey, {settings.InstantCraftModifierKey}, function()
+        UseLastSelectedAmount(not settings.DefaultToInstantCraft)
     end)
 
 end
 
+SetupConfig()
 SetupKeybinds()
 
 NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
@@ -177,7 +226,7 @@ NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMen
     if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
 
     activeWorkspace = workspace
-    mPrint("active workspace set")
+    mPrint("active workspace set via NotifyOnNewObject")
 end)
 
 mPrint("MOD LOADED")
