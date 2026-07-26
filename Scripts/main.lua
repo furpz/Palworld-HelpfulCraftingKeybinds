@@ -6,17 +6,25 @@ local config = require("config")
 
 -- default settings, config is checked and overrides if the value in config != nil
 local settings = {
+    StartCraftKeyEnabled = true,
     StartCraftKey = Key.SPACE,
+
     UseLastAmountKey = Key.OEM_THREE,
+
+    UseShiftForLargeIncrement = true,
+    IncrementSize = 1,
+    LargeIncrementSize = 10,
+    IncrementKey = Key.D,
+    DecrementKey = Key.A,
+    LargeIncrementKey = Key.W,
+    LargeDecrementKey = Key.S,
+    
+    DefaultToInstantCraft = false,
     InstantCraftModifierKey = ModifierKey.SHIFT,
 
-    DefaultToInstantCraft = false,
-    StartCraftKeyEnabled = true,
     EnableNumberRow = true,
-    EnableNumpad = true
+    EnableNumpad = true,
 }
-
--- make this cleaner later when i feel like it lol
 
 local lastSelectedAmount
 local activeWorkspace
@@ -47,7 +55,7 @@ local numpadMappings = {
 
 -- util --------------------------------------------------------------------------------
 local function mPrint(message)
-    print("[QuickCraftSplit] " .. message)
+    print("[HelpfulCraftingKeybinds] " .. message)
 end
 
 local function GetWorkspace()
@@ -56,6 +64,7 @@ local function GetWorkspace()
     end
 
     mPrint("no active workspace found, attempting to search for a new one")
+
     local foundWorkspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
     if foundWorkspace and foundWorkspace:IsValid() then
         activeWorkspace = foundWorkspace
@@ -108,6 +117,26 @@ local function StartCraft()
 
         if workspace:IsActivated() then workspace:StartProduce() end
     end)
+end
+
+local function Increment(amount)
+    if not CanProcessKeybind() then return end
+
+    local commonSelectNum = GetCommonSelectNum()
+    if not commonSelectNum then return end
+
+    local max = commonSelectNum["Max Num"]
+    local currentNum = commonSelectNum.nowNum
+
+    ExecuteInGameThread(function()
+        local workspace = GetWorkspace()
+        if not workspace or not commonSelectNum then return end
+
+        local newAmount = math.min(math.max(currentNum + amount, 1), max)
+
+        commonSelectNum:SetNum(newAmount, 1, true)
+    end)
+
 end
 
 local function SplitAmount(denominator, instantCraft)
@@ -174,31 +203,72 @@ local function RegisterFractionKeys(mappingTable)
     end
 end
 
+local function RegisterIncrementKeys()
+    RegisterKeyBind(settings.IncrementKey, function()
+        Increment(settings.IncrementSize)
+    end)
+    
+    RegisterKeyBind(settings.DecrementKey, function()
+        Increment(-settings.IncrementSize)
+    end)
+
+    if (settings.UseShiftForLargeIncrement) then
+        RegisterKeyBind(settings.IncrementKey, {ModifierKey.SHIFT}, function()
+            Increment(settings.LargeIncrementSize)
+        end)
+
+        RegisterKeyBind(settings.DecrementKey, {ModifierKey.SHIFT}, function()
+            Increment(-settings.LargeIncrementSize)
+        end)
+    else
+        RegisterKeyBind(settings.LargeIncrementKey, function()
+            Increment(settings.LargeIncrementSize)
+        end)
+
+        RegisterKeyBind(settings.LargeDecrementKey, function()
+            Increment(-settings.LargeIncrementSize)
+        end)
+    end
+
+end
+
+local function RegisterUseLastAmountKeys()
+    RegisterKeyBind(settings.UseLastAmountKey, function()
+        UseLastSelectedAmount(settings.DefaultToInstantCraft)
+    end)
+
+    RegisterKeyBind(settings.UseLastAmountKey, {settings.InstantCraftModifierKey}, function()
+        UseLastSelectedAmount(not settings.DefaultToInstantCraft)
+    end)
+end
+
 local function SetupConfig()
     if config == nil then mPrint("config not found") return end
 
-    for setting, _ in pairs(settings) do
-        local settingConfig = config.Settings[setting]
-
-        if settingConfig ~= nil then
-            settings[setting] = settingConfig
+    if config.Settings then
+        for setting, value in pairs(config.Settings) do
+            if settings[setting] ~= nil then
+                settings[setting] = value
+            end
         end
     end
 
-    for setting, _ in pairs(settings) do
-        local keybindConfig = config.Keybinds[setting]
-        local mappedKey = keybindConfig and Key[keybindConfig]
+    if config.Keybinds then
+        for keybind, keybindString in pairs(config.Keybinds) do
+            if settings[keybind] ~= nil then
+                local mappedKey = Key[keybindString]
 
-        if mappedKey ~= nil then
-            settings[setting] = mappedKey
-        else
-            mPrint("keybind " .. tostring(keybindConfig) .. " is invalid, using default")
+                if mappedKey then 
+                    settings[keybind] = mappedKey
+                else
+                    mPrint("keybind " .. keybind .. ": " .. keybindString .. " is invalid, using default")
+                end
+            end
         end
     end
 end
 
 local function SetupKeybinds()
-    --loop thru config keybinds and set accordingly, this is a fallback in case config doesn't load ? but idk if that can even happen 
     if settings.EnableNumberRow then RegisterFractionKeys(numberRowMapping) end
     if settings.EnableNumpad then RegisterFractionKeys(numpadMappings) end
 
@@ -208,13 +278,8 @@ local function SetupKeybinds()
         end)
     end
 
-    RegisterKeyBind(settings.UseLastAmountKey, function()
-        UseLastSelectedAmount(settings.DefaultToInstantCraft)
-    end)
-
-    RegisterKeyBind(settings.UseLastAmountKey, {settings.InstantCraftModifierKey}, function()
-        UseLastSelectedAmount(not settings.DefaultToInstantCraft)
-    end)
+    RegisterIncrementKeys()
+    RegisterUseLastAmountKeys()
 
 end
 
