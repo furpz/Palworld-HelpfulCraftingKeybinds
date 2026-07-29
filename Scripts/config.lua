@@ -54,7 +54,7 @@ return {
         -- this doesn't have to be bigger than LargeIncrementSize
         -- options: any whole numbers (default: 1)
         
-        LargeIncrementSize = 5,
+        LargeIncrementSize = 10,
         -- the larger amount you want to increment/decrement by
         -- used when holding shift + increment/decrement key
         -- if UseShiftForLargeIncrement is false, this is used when pressing LargeIncrementKey/LargeDecrementKey

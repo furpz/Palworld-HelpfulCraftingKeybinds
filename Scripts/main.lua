@@ -1,4 +1,4 @@
--- HelpfulCraftingKeybinds v1.1.1
+-- HelpfulCraftingKeybinds v1.2.1
 -- by furpz!!!!
 
 local ueHelpers = require("UEHelpers")
@@ -62,14 +62,14 @@ local function GetWorkspace()
     if activeWorkspace and activeWorkspace:IsValid() then
         return activeWorkspace
     end
-
-    mPrint("no active workspace found, attempting to search for a new one")
-
-    local foundWorkspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
-    if foundWorkspace and foundWorkspace:IsValid() then
-        activeWorkspace = foundWorkspace
-        return activeWorkspace
-    end
+    
+    --this causes stutters pretty bad if spammed, just gonna trust notifyonnewobject for setting activeworkspace
+    -- mPrint("no active workspace found, attempting to search for a new one")
+    -- local foundWorkspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
+    -- if foundWorkspace and foundWorkspace:IsValid() then
+    --     activeWorkspace = foundWorkspace
+    --     return activeWorkspace
+    -- end
 
     mPrint("could not find a valid workspace")
 
