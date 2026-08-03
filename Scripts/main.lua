@@ -1,4 +1,4 @@
--- HelpfulCraftingKeybinds v1.2.1
+-- HelpfulCraftingKeybinds v1.1.1
 -- by furpz!!!!
 
 local ueHelpers = require("UEHelpers")
@@ -18,7 +18,7 @@ local settings = {
     DecrementKey = Key.A,
     LargeIncrementKey = Key.W,
     LargeDecrementKey = Key.S,
-    
+
     DefaultToInstantCraft = false,
     InstantCraftModifierKey = ModifierKey.SHIFT,
 
@@ -62,16 +62,16 @@ local function GetWorkspace()
     if activeWorkspace and activeWorkspace:IsValid() then
         return activeWorkspace
     end
-    
-    --this causes stutters pretty bad if spammed, just gonna trust notifyonnewobject for setting activeworkspace
+
     -- mPrint("no active workspace found, attempting to search for a new one")
+
     -- local foundWorkspace = FindFirstOf("WBP_IngameMenu_WorkSpace_C")
     -- if foundWorkspace and foundWorkspace:IsValid() then
     --     activeWorkspace = foundWorkspace
     --     return activeWorkspace
     -- end
 
-    mPrint("could not find a valid workspace")
+    -- mPrint("could not find a valid workspace")
 
     return nil
 end
@@ -81,7 +81,10 @@ local function GetCommonSelectNum()
     if not workspace then return nil end
 
     local commonSelectNum = workspace.WBP_IngameCommonSelectNum
-    if not commonSelectNum or not commonSelectNum:IsValid() then mPrint("commonSelectNum not valid") return nil end
+    if not commonSelectNum or not commonSelectNum:IsValid() then
+        mPrint("commonSelectNum not valid")
+        return nil
+    end
 
     return commonSelectNum
 end
@@ -98,11 +101,10 @@ local function IsPlayerTyping()
 end
 
 local function CanProcessKeybind()
-    local workspace = GetWorkspace()
-    if not workspace then return false end
+    if not activeWorkspace or not activeWorkspace:IsValid() then return false end;
+    if not activeWorkspace:IsActivated() then return false end
 
     if IsPlayerTyping() then return false end
-    if not workspace:IsActivated() then return false end
 
     return true
 end
@@ -136,7 +138,6 @@ local function Increment(amount)
 
         commonSelectNum:SetNum(newAmount, 1, true)
     end)
-
 end
 
 local function SplitAmount(denominator, instantCraft)
@@ -193,8 +194,8 @@ local function RegisterFractionKeys(mappingTable)
             RegisterKeyBind(targetKey, function()
                 SplitAmount(denominatorAsNumber, settings.DefaultToInstantCraft)
             end)
-    
-            RegisterKeyBind(targetKey, {settings.InstantCraftModifierKey}, function()
+
+            RegisterKeyBind(targetKey, { settings.InstantCraftModifierKey }, function()
                 SplitAmount(denominatorAsNumber, not settings.DefaultToInstantCraft)
             end)
         else
@@ -207,17 +208,17 @@ local function RegisterIncrementKeys()
     RegisterKeyBind(settings.IncrementKey, function()
         Increment(settings.IncrementSize)
     end)
-    
+
     RegisterKeyBind(settings.DecrementKey, function()
         Increment(-settings.IncrementSize)
     end)
 
     if (settings.UseShiftForLargeIncrement) then
-        RegisterKeyBind(settings.IncrementKey, {ModifierKey.SHIFT}, function()
+        RegisterKeyBind(settings.IncrementKey, { ModifierKey.SHIFT }, function()
             Increment(settings.LargeIncrementSize)
         end)
 
-        RegisterKeyBind(settings.DecrementKey, {ModifierKey.SHIFT}, function()
+        RegisterKeyBind(settings.DecrementKey, { ModifierKey.SHIFT }, function()
             Increment(-settings.LargeIncrementSize)
         end)
     else
@@ -229,7 +230,6 @@ local function RegisterIncrementKeys()
             Increment(-settings.LargeIncrementSize)
         end)
     end
-
 end
 
 local function RegisterUseLastAmountKeys()
@@ -237,13 +237,16 @@ local function RegisterUseLastAmountKeys()
         UseLastSelectedAmount(settings.DefaultToInstantCraft)
     end)
 
-    RegisterKeyBind(settings.UseLastAmountKey, {settings.InstantCraftModifierKey}, function()
+    RegisterKeyBind(settings.UseLastAmountKey, { settings.InstantCraftModifierKey }, function()
         UseLastSelectedAmount(not settings.DefaultToInstantCraft)
     end)
 end
 
 local function SetupConfig()
-    if config == nil then mPrint("config not found") return end
+    if config == nil then
+        mPrint("config not found")
+        return
+    end
 
     if config.Settings then
         for setting, value in pairs(config.Settings) do
@@ -258,7 +261,7 @@ local function SetupConfig()
             if settings[keybind] ~= nil then
                 local mappedKey = Key[keybindString]
 
-                if mappedKey then 
+                if mappedKey then
                     settings[keybind] = mappedKey
                 else
                     mPrint("keybind " .. keybind .. ": " .. keybindString .. " is invalid, using default")
@@ -280,18 +283,24 @@ local function SetupKeybinds()
 
     RegisterIncrementKeys()
     RegisterUseLastAmountKeys()
-
 end
 
 SetupConfig()
 SetupKeybinds()
 
-NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C", function(workspace)
-    if not (workspace and workspace:IsValid()) then mPrint("workspace not valid") return end
-    if not string.find(workspace:GetFullName(), "/Engine/Transient") then mPrint("improper workspace path") return end
+NotifyOnNewObject("/Game/Pal/Blueprint/UI/UserInterface/IngameMenu/WBP_IngameMenu_WorkSpace.WBP_IngameMenu_WorkSpace_C",
+    function(workspace)
+        if not (workspace and workspace:IsValid()) then
+            mPrint("workspace not valid")
+            return
+        end
+        if not string.find(workspace:GetFullName(), "/Engine/Transient") then
+            mPrint("improper workspace path")
+            return
+        end
 
-    activeWorkspace = workspace
-    mPrint("active workspace set via NotifyOnNewObject")
-end)
+        activeWorkspace = workspace
+        mPrint("active workspace set via NotifyOnNewObject")
+    end)
 
 mPrint("MOD LOADED")
